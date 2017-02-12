@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Assets.Scripts
 {
-    public class PlayerStateMachine : MonoBehaviour
+    class PlayerStateMachine : PlayerController
     {
         // enumerator for player states
         private enum PlayerStates
@@ -18,43 +18,22 @@ namespace Assets.Scripts
 
         // state tracker defaults to idle
         private PlayerStates currentState = PlayerStates.IDLE;
+        [HideInInspector] public static string state = "IDLE";
 
         // create a dictionary to contain all the states and the appropriate action to take
         private readonly Dictionary<PlayerStates, Action> playerStateInvoker = new Dictionary<PlayerStates, Action>();
 
         // private fields required for initialization of state machine
-        private Player playerScript;
-        private Rigidbody2D player;
-        private LayerMask floorLayer;
-        private Collider2D playerCol;
-
-        // fields for the purpose of determining whether the character is grounded
-        private float fDistToGround;
-        public bool bGrounded;
-
-        // private field for the current jump time
-        private float fJumpHoldTime = 0.0f;
-
-        // number of jumps available, useful for double jump or multiple jumps
-        private int iRemainingJumps;
+        private PlayerController playerCont;
 
         // initialization
         void Start()
         {
             // fetch components from unity for use within initialization
-            playerScript = GetComponent<Player>();
-            player = GetComponent<Rigidbody2D>();
-            playerCol = GetComponent<Collider2D>();
+            playerCont = GetComponent<PlayerController>();
 
-            // get the int val of the named layer and ground distance for IsGrounded()
-            //floorLayer = LayerMask.GetMask("Floor");
-            //fDistToGround = playerCol.bounds.extents.y;
-
-            // get the value for the players max jumps
-            iRemainingJumps = playerScript.GetMaxJumps();
-            
             // reset number of jumps to 0
-            ResetJumps();          
+            playerCont.ResetJumps();
 
             // Populate the dictionary
             playerStateInvoker.Add(PlayerStates.IDLE, UpdateIDLE);
@@ -67,6 +46,7 @@ namespace Assets.Scripts
         {
             // check grounded state
             playerStateInvoker[currentState].Invoke();
+
             //Debug.Log(currentState);
             //Debug.Log("Gounded: " + bGrounded);
             //Debug.Log(iRemainingJumps);
@@ -75,7 +55,7 @@ namespace Assets.Scripts
 
         private void SetState(PlayerStates newState)
         {
-                currentState = newState;
+            currentState = newState;
         }
 
         #region idle
@@ -84,13 +64,18 @@ namespace Assets.Scripts
             if (Mathf.Abs(Input.GetAxis("Horizontal")) >= 0.05)
             {
                 SetState(PlayerStates.WALK);
-            } else if (Input.GetButton("Jump"))
+                state = "WALK";
+            }
+            else if (Input.GetButton("Jump"))
             {
                 SetState(PlayerStates.ENTER_JUMP);
-            } else if (!bGrounded)
+                state = "ENTER_JUMP";
+            }
+            else if (!bGrounded)
             {
-                iRemainingJumps--;
+                playerCont.DecreaseJumps();
                 SetState(PlayerStates.IN_AIR);
+                state = "IN_AIR";
             }
         }
         #endregion
@@ -98,19 +83,22 @@ namespace Assets.Scripts
         #region walk
         private void UpdateWALK()
         {
-            HandleHorizontalInput();
+            playerCont.HandleHorizontalInput();
             if (!bGrounded)
             {
-                iRemainingJumps--;
+                playerCont.DecreaseJumps();
                 SetState(PlayerStates.IN_AIR);
+                state = "IN_AIR";
             }
             else if (Input.GetButton("Jump"))
             {
                 SetState(PlayerStates.ENTER_JUMP);
+                state = "ENTER_JUMP";
             }
             else if (Mathf.Abs(Input.GetAxis("Horizontal")) <= 0.05)
             {
                 SetState(PlayerStates.IDLE);
+                state = "IDLE";
             }
         }
         #endregion
@@ -119,102 +107,43 @@ namespace Assets.Scripts
         #region enter jump
         private void UpdateENTER_JUMP()
         {
-            if (iRemainingJumps != 0)
+            if (playerCont.iRemainingJumps != 0)
             {
-                HandleJumpInput();
-                HandleHorizontalInput();
-                iRemainingJumps--;
+                playerCont.HandleJumpInput();
+                playerCont.HandleHorizontalInput();
+                playerCont.DecreaseJumps();
                 SetState(PlayerStates.IN_AIR);
+                state = "IN_AIR";
             }
         }
         #endregion
 
-        #region in air
-        
+        #region in air        
         private void UpdateIN_AIR()
         {
-            HandleJumpInput();
-            HandleHorizontalInput();
+            playerCont.HandleJumpInput();
+            playerCont.HandleHorizontalInput();
             if (bGrounded)
             {
-                ResetJumps();
+                playerCont.ResetJumps();
                 if (Mathf.Abs(Input.GetAxis("Horizontal")) >= 0.05)
                 {
                     SetState(PlayerStates.WALK);
+                    state = "WALK";
                 }
                 else if (Input.GetButton("Jump"))
                 {
                     SetState(PlayerStates.ENTER_JUMP);
-                } else
+                    state = "ENTER_JUMP";
+                }
+                else
                 {
                     SetState(PlayerStates.IDLE);
+                    state = "IDLE";
                 }
             }
         }
         #endregion
 
-        #region handlers
-
-        //variables to handle speed changes for running and walking
-        [SerializeField] private float fAccelerationSpeed;
-        [SerializeField] private float fMaxSpeed;
-
-        private void HandleHorizontalInput()
-        {
-            var direction = Input.GetAxis("Horizontal");
-
-            var acceleration = new Vector2((fAccelerationSpeed * direction), 0);
-
-            if (Mathf.Abs(direction) >= 0.05)
-            {
-                player.velocity += acceleration;
-            }
-
-            var magnitude = Mathf.Abs(player.velocity.x);
-
-            if (magnitude <= 0.1f)
-            {
-                player.velocity = new Vector2(0, player.velocity.y);
-            }
-            else if (magnitude >= fMaxSpeed)
-            {
-                player.velocity = new Vector2((fMaxSpeed * direction), player.velocity.y);
-            }
-        }
-
-        private bool bContinueJump = true;
-        private bool bJumpRelease = false;
-
-        private void HandleJumpInput()
-        {
-            if (Input.GetButtonUp("Jump"))
-            {
-                bJumpRelease = true;
-            }
-            if (fJumpHoldTime > playerScript.GetMaxJumpTime())
-            {
-                bContinueJump = false;
-            }
-            if (bContinueJump && bJumpRelease == false)
-            {
-                if (Input.GetButton("Jump"))
-                {
-                    fJumpHoldTime += Time.deltaTime;
-                    player.velocity += new Vector2(0, playerScript.GetJumpAcceleration());
-                }
-            }
-        }
-        #endregion
-       
-        #region helpers
-        //helpers
-        private void ResetJumps()
-        {
-            iRemainingJumps = playerScript.GetMaxJumps();
-            bJumpRelease = false;
-            bContinueJump = true;
-            fJumpHoldTime = 0.0f;
-        }
-        #endregion
     }
 }

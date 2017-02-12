@@ -8,13 +8,16 @@ namespace Assets.Scripts
 {
     class Player : MonoBehaviour
     {
-        #region jumping
-        [SerializeField] protected int maxJumps = 1;
-        [SerializeField] protected float initialJumpForce = 5f;
-        [SerializeField] protected float jumpAcceleration = 0.5f;
-        [SerializeField] protected float maxJumpTime = 1.5f;
-        protected bool bGrounded;
+        public int maxJumps = 1;
+        public float initialJumpForce = 5f;
+        public float jumpAcceleration = 0.5f;
+        public float maxJumpTime = .5f;
+        public float walkAcceleration = 2f;
+        public float maxWalkSpeed = 6f;
 
+        public bool bGrounded;
+
+        #region jumping
         public bool IsGrounded()
         {
             return bGrounded;
@@ -40,11 +43,8 @@ namespace Assets.Scripts
             return maxJumpTime;
         }
         #endregion
-        
-        #region walking
 
-        [SerializeField] protected float walkAcceleration = 2f;
-        [SerializeField] protected float maxWalkSpeed = 6f;
+        #region walking
 
         public float GetWalkAcceleration()
         {
