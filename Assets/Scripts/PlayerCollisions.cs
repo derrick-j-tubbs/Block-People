@@ -6,20 +6,20 @@ namespace Assets.Scripts
 {
     public class PlayerCollisions : MonoBehaviour
     {
-        private PlayerStateMachine psmScript;
+        private Player playerScript;
         public LayerMask floorLayer;
 
         void Start()
         {
             floorLayer = LayerMask.NameToLayer("Floor");
-            psmScript = GetComponent<PlayerStateMachine>();
+            playerScript = GetComponent<Player>();
         }
 
         void OnCollisionEnter2D(Collision2D coll)
         {
             if (gameObject.tag == "Player" && coll.gameObject.layer == floorLayer)
             {
-                psmScript.bGrounded = true;
+                playerScript.bGrounded = true;
             }
         }
 
@@ -27,7 +27,7 @@ namespace Assets.Scripts
         {
             if (gameObject.tag == "Player" && coll.gameObject.layer == floorLayer)
             {
-                psmScript.bGrounded = false;
+                playerScript.bGrounded = false;
             }
         }
     }
